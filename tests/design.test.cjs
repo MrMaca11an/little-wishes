@@ -1,0 +1,6 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+function luminance(hex){let h=hex.replace('#','');if(h.length===3)h=h.split('').map(x=>x+x).join('');const a=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*a[0]+.7152*a[1]+.0722*a[2]}
+function ratio(a,b){const [lo,hi]=[luminance(a),luminance(b)].sort((x,y)=>x-y);return(hi+.05)/(lo+.05)}
+const fs=require('node:fs'),path=require('node:path');const css=fs.readFileSync(path.join(__dirname,'../public/style.css'),'utf8');function token(name){return [...css.matchAll(new RegExp(`--${name}:\\s*(#[0-9a-f]{3,6})\\b`,'gi'))].at(-1)[1]}
+test('semantic text and CTA pairs meet 4.5:1',()=>{for(const bg of [token('bg'),token('paper'),token('blush'),'#f6e9ed'])for(const fg of [token('ink'),token('muted'),token('rose'),token('rose-dark')])assert.ok(ratio(fg,bg)>=4.5,`${fg} / ${bg}`);assert.ok(ratio('#fff',token('rose'))>=4.5);assert.ok(ratio('#756a6e','#fff')>=4.5);});
+test('input and focus indicators on white/light background meet 3:1',()=>{for(const bg of [token('paper'),token('bg')])for(const fg of [token('control'),token('rose-dark')])assert.ok(ratio(fg,bg)>=3,`${fg} / ${bg}`)});
