@@ -9,7 +9,7 @@ with sync_playwright() as p:
   page=b.new_page(viewport={'width':w,'height':900},reduced_motion='reduce',has_touch=w<=390)
   page.set_content(html);page.add_style_tag(content=css)
   page.evaluate('''() => {const mem={};Object.defineProperty(window,'localStorage',{value:{getItem:k=>mem[k]??null,setItem:(k,v)=>mem[k]=v}});window.fetch=async()=>({ok:true,json:async()=>({result:'success',rates:{USD:1,RUB:90,EUR:.9},time_last_update_unix:1795500000})})}''')
-  page.add_script_tag(content=js);page.wait_for_timeout(100);page.get_by_role('button',name='Посмотреть пример').click()
+  page.add_script_tag(content=js);page.wait_for_timeout(100);assert page.title()=="kukla's wishes — мои желания";assert page.locator('.side-note').inner_text()=='Мечты сбываются ♡';assert 'по одной за раз' not in page.content();page.get_by_role('button',name='Посмотреть пример').click()
   for name in ['home','all','collections','favorites','bought','stats','settings']:
    page.evaluate(f"go('{name}')");page.wait_for_timeout(40)
    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),f'overflow {w} {name}'
@@ -18,7 +18,7 @@ with sync_playwright() as p:
   if w==1440: page.screenshot(path=str(root.parent/'form-test.png'))
   page.keyboard.press('Escape');assert not page.locator('dialog').is_visible()
   page.locator('.product-title').first.click();assert page.locator('dialog').is_visible();assert page.locator('.detail-photo .demo-art').count()==1;page.keyboard.press('Escape');
-  page.evaluate("window.scrollTo(0,0);document.getElementById('toast').classList.remove('show')");page.mouse.move(0,0)
+  page.evaluate("document.activeElement.blur();window.scrollTo(0,0);document.getElementById('toast').classList.remove('show')");page.mouse.move(0,0)
   if w in (390,1440): page.screenshot(path=str(root.parent/('mobile-test.png' if w==390 else 'preview-test.png')),full_page=True)
   page.close();print(f'{w}px: 7 pages, add and detail dialogs passed')
  b.close()

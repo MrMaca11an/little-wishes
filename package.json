@@ -1,1 +1,14 @@
-{"name":"little-wishes","version":"2.0.0","private":true,"description":"Личный вишлист с автоматическим импортом товаров","scripts":{"test":"node --test tests/*.test.cjs","dev":"npx netlify-cli dev","deploy":"npx netlify-cli deploy --prod --dir=public --functions=netlify/functions"},"engines":{"node":">=20"}}
+{
+  "name": "kuklas-wishes",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Личный вишлист с автоматическим импортом товаров",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "dev": "npx netlify-cli dev",
+    "deploy": "npx netlify-cli deploy --prod --dir=public --functions=netlify/functions"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

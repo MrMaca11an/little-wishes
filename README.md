@@ -1,6 +1,10 @@
-# Little Wishes 2.0 ♡
+# kukla's wishes 2.1 ♡
 
 Личный вишлист на русском языке: адаптивный интерфейс, коллекции, автоматический импорт публичных метаданных товара, мультивалютность, приоритеты, бюджет и история покупок.
+
+## Новое в 2.1
+
+Новое название, подпись «Мечты сбываются ♡», выравнивание карточек, навигации и мобильных элементов. Ключ localStorage сохранён для совместимости.
 
 ## Новое в 2.0
 
@@ -12,20 +16,18 @@ Soft Editorial: контрастная пастельная палитра, ре
 
 ### Через GitHub
 
-1. Распакуйте `little-wishes-v2-source.zip`.
-2. Создайте **новый** репозиторий `little-wishes` на https://github.com/new (лучше Private, без README при создании). Загрузите содержимое распакованной папки, включая `netlify/`, `public/`, `netlify.toml`.
-3. В Netlify: Add new project → Import an existing project → GitHub → выберите новый репозиторий. Разрешите Netlify доступ к нему, если потребуется.
+1. Используйте текущий репозиторий `MrMaca11an/little-wishes`, ветку `main`.
+2. Исходники уже содержат `netlify/`, `public/` и `netlify.toml`.
+3. В Netlify: Add new project → Import an existing project → GitHub → выберите `little-wishes`. Разрешите Netlify доступ к нему, если потребуется.
 4. Build command — пусто; Publish directory — `public`; Functions directory — `netlify/functions`. `netlify.toml` уже содержит настройки.
 5. Нажмите Deploy. Откройте выданный HTTPS-адрес. Проверьте импорт, добавив ссылку на публичный товар со Schema.org Product или Open Graph.
 
-Команды для загрузки через Git (в папке с `netlify.toml`, после создания пустого репозитория):
+Для локальной разработки:
 
 ```bash
-git init -b main
-git add .
-git commit -m "Initial Little Wishes release"
-git remote add origin https://github.com/YOUR_USERNAME/little-wishes.git
-git push -u origin main
+git clone https://github.com/MrMaca11an/little-wishes.git
+cd little-wishes
+npm test
 ```
 
 ### Через Netlify CLI — без GitHub
@@ -42,7 +44,7 @@ npm run deploy
 
 ### Через Netlify Drop — только статическая версия
 
-Распакуйте `little-wishes-v2-netlify-drop.zip`, затем перетащите папку с `index.html` в https://app.netlify.com/drop. Статическая версия работает без сборки и без функций. **Автоимпорт по ссылке в ней ограничен страницами, разрешающими CORS; большинство магазинов не разрешают.** Ручное добавление, фотографии, курсы валют, коллекции, статистика, экспорт и снимки списков работают. Для полноценного импорта используйте GitHub или CLI выше. Не загружайте исходный ZIP как статический корень: `index.html` находится в `public/`.
+Перетащите папку `public` в https://app.netlify.com/drop. Статическая версия работает без сборки и без функций. **Автоимпорт по ссылке в ней ограничен страницами, разрешающими CORS; большинство магазинов не разрешают.** Ручное добавление, фотографии, курсы валют, коллекции, статистика, экспорт и снимки списков работают. Для полноценного импорта используйте GitHub или CLI выше. Не загружайте исходный ZIP как статический корень: `index.html` находится в `public/`.
 
 ## Страницы
 
