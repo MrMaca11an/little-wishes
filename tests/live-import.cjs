@@ -11,7 +11,7 @@ const cases=[
  ['Apple','https://www.apple.com/shop/buy-airpods/airpods-pro-3','airpods','USD'],
  ['LEGO','https://www.lego.com/en-us/product/orchid-10311','orchid','USD'],
  ['Allbirds','https://www.allbirds.com/products/womens-tree-runner-go-hazy-pine','tree runner','USD'],
- ['Ozon','https://www.ozon.ru/product/polaris-uvlazhnitel-vozduha-puh-8080-wi-fi-iq-home-chernyy-1044711493/','polaris','RUB']
+ ['Ozon','https://www.ozon.ru/product/polaris-uvlazhnitel-vozduha-dlya-doma-puh-8080-wi-fi-iq-home-ultrazvukovoy-obem-4-5-l-828334066/','polaris','RUB']
 ];
 async function check([brand,url,expected,currency],i){
  const start=Date.now();

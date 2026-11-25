@@ -302,3 +302,5 @@ dialog::backdrop {background:#30212c70;backdrop-filter:blur(2px);}
 
 /* Smart product import */
 .import-extra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}.import-extra .btn{font-size:12px;min-height:38px;padding:6px 10px}.import-image-options{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px}.import-image-options:empty{display:none}.import-thumb{width:60px;height:60px;flex:none;border:1px solid #e5d9df;background:#fff;border-radius:9px;padding:3px;cursor:pointer}.import-thumb[aria-pressed=true]{outline:2px solid #93465e;outline-offset:-2px}.import-thumb img{width:100%;height:100%;object-fit:contain;border-radius:6px}.import-status{overflow-wrap:anywhere}
+
+.capture-panel{border:1px solid #e5d9df;border-radius:12px;padding:12px;margin-bottom:12px;display:grid;gap:9px}.capture-panel[hidden]{display:none}.capture-panel p{font-size:13px;line-height:1.5;color:var(--muted,#6e6267);margin:0}.capture-panel textarea{width:100%;resize:vertical}.capture-panel .btn{justify-self:start}
