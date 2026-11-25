@@ -17,3 +17,12 @@ jobs:
       - run: node --check public/app.js
       - run: node --check netlify/functions/import-product.cjs
       - run: node --check netlify/lib/product-import.cjs
+      - name: Live public product matrix (no API keys)
+        if: startsWith(github.ref, 'refs/heads/smart-import/')
+        timeout-minutes: 5
+        run: node tests/live-import.cjs
+      - uses: actions/upload-artifact@v4
+        if: always() && startsWith(github.ref, 'refs/heads/smart-import/')
+        with:
+          name: live-import-results
+          path: live-import-results.json
