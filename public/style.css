@@ -299,3 +299,6 @@ dialog::backdrop {background:#30212c70;backdrop-filter:blur(2px);}
  .product-grid:not(.list):not(:has(.card-actions a)) .card-bottom {display:flex;min-height:50px;}
  .product-grid:not(.list):not(:has(.card-actions a)) .card-actions {margin-left:auto;}
 }
+
+/* Smart product import */
+.import-extra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}.import-extra .btn{font-size:12px;min-height:38px;padding:6px 10px}.import-image-options{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px}.import-image-options:empty{display:none}.import-thumb{width:60px;height:60px;flex:none;border:1px solid #e5d9df;background:#fff;border-radius:9px;padding:3px;cursor:pointer}.import-thumb[aria-pressed=true]{outline:2px solid #93465e;outline-offset:-2px}.import-thumb img{width:100%;height:100%;object-fit:contain;border-radius:6px}.import-status{overflow-wrap:anywhere}
