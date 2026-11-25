@@ -109,6 +109,46 @@ function parsePage(html,url,h,source='HTML'){
   return result;
 }
 function cleanPageText(html,h){return h.plain(html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,' ').replace(/<\/(?:div|p|li|h[1-6]|section|tr)>/gi,'\n'),26000)}
+
+function regionalURL(raw){
+  const u=new URL(raw);
+  if(!['bulgari.com','www.bulgari.com'].includes(u.hostname))return '';
+  const region=u.pathname.match(/^\/(?:en|zh|ja|ko|de|fr|it|es|pt)-([a-z]{2})(?:\/|$)/i)?.[1]?.toUpperCase();
+  const map={HK:'HKD',US:'USD',GB:'GBP',UK:'GBP',JP:'JPY',SG:'SGD',TW:'TWD',KR:'KRW',AU:'AUD',CA:'CAD',CH:'CHF',AE:'AED',CN:'CNY',FR:'EUR',DE:'EUR',IT:'EUR',ES:'EUR',PT:'EUR',NL:'EUR',AT:'EUR',BE:'EUR',FI:'EUR',IE:'EUR'};
+  if(!map[region]||u.searchParams.has('geCountry')||u.searchParams.has('geCurrency'))return '';
+  u.searchParams.set('geCountry',region==='UK'?'GB':region);u.searchParams.set('geCurrency',map[region]);return u.href;
+}
+function sameProductURL(target,source){
+  try{const a=new URL(target),b=new URL(source);
+    if(!['http:','https:'].includes(b.protocol)||b.username||b.password||a.hostname.replace(/^www\./,'')!==b.hostname.replace(/^www\./,'')||a.pathname.replace(/\/$/,'')!==b.pathname.replace(/\/$/,''))return false;
+    const key=u=>{const v=new URL(stripTracking(u));v.searchParams.sort();return v.searchParams.toString()};
+    return key(a.href)===key(b.href)||!!regionalURL(a.href)&&key(regionalURL(a.href))===key(b.href);
+  }catch{return false}
+}
+function skuFromURL(url){try{return new URL(url).pathname.match(/(?:-|\/)(\d{5,})(?:\.html)?\/?$/)?.[1]||''}catch{return ''}}
+function visiblePrice(line,h){
+  let s=text(line.replace(/^\s*[-*]\s+/,'').replace(/\*\*/g,''),100);
+  s=s.replace(/^(?:цена(?: товара)?|price|sale price|current price|售价|价格)\s*[:：]?\s*/i,'');
+  if(!/^(?:(?:HK\$|US\$|CA\$|AU\$|CN¥|JP¥|€|£|₽|₩|₹|₺|₸|฿|₫|[A-Z]{3})\s*)?\d[\d., \u00a0\u202f]*(?:\s*(?:HK\$|US\$|CA\$|AU\$|€|£|₽|₩|₹|₺|₸|฿|₫|руб\.?|元|円|[A-Z]{3}))?$/.test(s))return null;
+  const p=money(s,'',h.parsePrice);return p.price!==null&&p.currency?p:null;
+}
+function bodyDetails(md,title,url,h){
+  const lines=md.split(/\r?\n/),sku=skuFromURL(url);
+  const first=lines.findIndex(l=>/^#\s+/.test(l)&&title.toLowerCase().includes(l.replace(/^#\s+/,'').trim().toLowerCase()));
+  const start=first>=0?first:0;
+  const stop=lines.findIndex((l,i)=>i>start&&/^\s*(?:#{1,6}\s*|[-*]\s*)?(?:description|details|you may also like|related products|recommended|описание|характеристики|рекомендации)\s*:?\s*$/i.test(l.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1')));
+  const section=lines.slice(start,stop>=0?stop:Math.min(lines.length,start+120));
+  const prices=[...new Map(section.map(l=>visiblePrice(l,h)).filter(Boolean).map(p=>[p.currency+':'+p.price,p])).values()];
+  const desc=[];if(stop>=0)for(const l of lines.slice(stop+1,stop+12)){if(/^\s*(?:#{1,6}\s|[-*]\s*\[|details\s*$|ref\s*[:.]|material\s*:|size\s*:)/i.test(l))break;if(l.trim().length>45&&!/^\s*[!\[]/.test(l))desc.push(l.trim())}
+  const subtitle=section.find(l=>/^##\s+/.test(l));
+  const size=lines.map(l=>l.match(/^\s*(?:#{1,6}\s*)?(?:Size|Размер)\s*:\s*([^\n]{1,35})$/i)).find(Boolean)?.[1];
+  const images=[];if(sku&&/^https:\/\/(?:www\.)?bulgari\.com\//i.test(url)&&lines.some(l=>new RegExp('\\b'+sku+'\\b').test(l))){
+    const gallery=lines.slice(0,first>=0?first:Math.min(lines.length,80)).join('\n').split(/TERMS AND CONDITIONS|CHOOSE YOUR FIT/i)[0];
+    for(const m of gallery.matchAll(/!?\[(?:Image)[^\]]*\]\((https:\/\/media2\.bulgari\.com\/[^\s)]+)\)/gi))images.push(m[1]);
+  }
+  return {price:prices.length===1?prices[0]:{},description:desc.join(' ')||(subtitle?subtitle.replace(/^##\s+/,''):''),variant:size?'Размер '+size:'',images};
+}
+
 function fromReader(d,url,h,source){
   const md=typeof d?.content==='string'?d.content:typeof d?.markdown==='string'?d.markdown:'';
   const title=text(d?.title||d?.metadata?.title,250);
@@ -117,11 +157,12 @@ function fromReader(d,url,h,source){
   const priceMatches=[];
   // A labeled price in reader output; never use a random price from a list of recommendations.
   for(const line of md.split('\n')){const m=line.match(/^\s*(?:\*\*)?(?:цена(?: товара)?|price|sale price|current price|售价|价格)(?:\*\*)?\s*[:：]?\s*(.{1,70})$/i);if(m){const v=money(m[1].replace(/\*\*/g,''),'',h.parsePrice);if(v.price!==null&&v.currency)priceMatches.push(v)}}
-  const price=priceMatches.length===1?priceMatches[0]:{};
+  const details=bodyDetails(md,title,url,h);const uniq=[...new Map(priceMatches.map(p=>[p.currency+':'+p.price,p])).values()];
+  const price=uniq.length===1?uniq[0]:uniq.length===0?details.price:{};images.push(...details.images);
   // Prefer explicit OG picture; use Markdown image only if its alt text matches the product title.
   const needle=title.toLowerCase().split(/\s+/).filter(v=>v.length>3&&!/^(?:amazon|ozon|wildberries|shop|магазин|купить|online|official)$/.test(v));
   for(const m of md.matchAll(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g)){if(needle.some(v=>m[1].toLowerCase().includes(v)))images.push(m[2])}
-  const p=normalize({title,description:d.description||meta.description,images,price:price.price,currency:price.currency},url,h,source);
+  const p=normalize({title,description:d.description||meta.description||details.description,images,price:price.price,currency:price.currency,variant:details.variant,brand:/^https:\/\/(?:www\.)?bulgari\.com\//i.test(url)?'Bvlgari':''},url,h,source);
   return {product:p,evidence:md.slice(0,26000)};
 }
 async function jsonRequest(url,init,ms,limit=8*1024*1024){
@@ -174,16 +215,18 @@ async function runImport({url,screenshot,refresh=false,paid=false,env=process.en
   if(!refresh){const hit=cached(key);if(hit)return {...hit,cached:true}}
   // Validate public DNS before forwarding a user URL to any external provider.
   await h.getIP(h.checkedURL(url).hostname,Date.now()+3500);
-  const mayForward=!sensitiveURL(url);
-  try{const d=await (providers.direct||h.download)(url,Date.now()+6500);p=parsePage(d.html,d.url,h,'HTML');evidence=cleanPageText(d.html,h);attempt('HTML',meaningful(p)?'ok':'no_product')}catch{attempt('HTML','unavailable')}
+  const mayForward=!sensitiveURL(url);const regional=regionalURL(url);
+  const direct=await Promise.allSettled([url,...(regional?[regional]:[])].map(async u=>{const d=await (providers.direct||h.download)(u,Date.now()+6500);return {product:parsePage(d.html,d.url,h,'HTML'),evidence:cleanPageText(d.html,h)}}));
+  for(const d of direct)if(d.status==='fulfilled'){p=merge(p,d.value.product);if(meaningful(d.value.product)||!evidence)evidence=d.value.evidence}
+  attempt('HTML',meaningful(p)?'ok':direct.every(d=>d.status==='rejected')?'unavailable':'no_product');
   if(!complete(p)&&mayForward&&paid&&env.FIRECRAWL_API_KEY&&left()>12000){
-    try{const d=await (providers.firecrawl||((url,ms)=>jsonRequest('https://api.firecrawl.dev/v2/scrape',{method:'POST',headers:{Authorization:'Bearer '+env.FIRECRAWL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({url,formats:['rawHtml','html','markdown'],onlyMainContent:true,timeout:Math.min(14000,ms-1000),maxAge:refresh?0:900000})},ms)))(url,Math.min(18000,left()-10000));
+    try{const d=await (providers.firecrawl||((url,ms)=>jsonRequest('https://api.firecrawl.dev/v2/scrape',{method:'POST',headers:{Authorization:'Bearer '+env.FIRECRAWL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({url,formats:['rawHtml','html','markdown'],onlyMainContent:true,timeout:Math.min(14000,ms-1000),maxAge:refresh?0:900000})},ms)))(regional||url,Math.min(12000,left()-10000));
       if(d.success===false||!d.data)throw Error('scrape failed');const v=d.data,actual=h.checkedURL(v.metadata?.sourceURL||v.metadata?.url||url).href;
       const q=merge(parsePage(v.rawHtml||'',actual,h,'Firecrawl'),parsePage(v.html||'',actual,h,'Firecrawl'));const r=fromReader({...v,title:v.metadata?.title},actual,h,'Firecrawl');p=merge(p,meaningful(q)?merge(q,r.product):r.product);evidence=(r.evidence||cleanPageText(v.html||v.rawHtml||'',h)||evidence).slice(0,26000);attempt('Firecrawl',meaningful(q)||meaningful(r.product)?'ok':'no_product')
     }catch{attempt('Firecrawl','unavailable')}
   }
   if(!complete(p)&&mayForward&&env.IMPORT_JINA!=='off'&&left()>9000){
-    try{const d=await (providers.jina||((url,ms)=>jsonRequest('https://r.jina.ai/'+url,{headers:{Accept:'application/json','X-Respond-With':'markdown',...(refresh?{'X-No-Cache':'true'}:{})}},ms)))(url,Math.min(11000,left()-7500));
+    try{const d=await (providers.jina||((url,ms)=>jsonRequest('https://r.jina.ai/'+url,{headers:{Accept:'application/json','X-Respond-With':'markdown',...(refresh?{'X-No-Cache':'true'}:{})}},ms)))(regional||url,Math.min(9000,left()-7500));
       const v=d.data||d,actual=h.checkedURL(v.url||url).href;const r=fromReader(v,actual,h,'Jina Reader');p=merge(p,r.product);if(r.evidence)evidence=r.evidence;attempt('Jina Reader',meaningful(r.product)?'ok':'no_product')
     }catch{attempt('Jina Reader','unavailable')}
   }
@@ -193,4 +236,4 @@ async function runImport({url,screenshot,refresh=false,paid=false,env=process.en
   const status=publicStatus(env);const result=finalize(p,attempts,{requiresPass:!complete(p)&&!paid&&status.protected&&(status.providers.firecrawl||status.providers.openrouter),providers:status.providers,externalSkipped:!mayForward});
   if(complete(p))cachePut(key,result);return result;
 }
-module.exports={runImport,verifyPass,publicStatus,allowed,stripTracking,parsePage,fromReader,normalize,merge,money,blank,complete,meaningful,imageURL};
+module.exports={regionalURL,sameProductURL,visiblePrice,bodyDetails,runImport,verifyPass,publicStatus,allowed,stripTracking,parsePage,fromReader,normalize,merge,money,blank,complete,meaningful,imageURL};
