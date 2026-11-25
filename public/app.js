@@ -68,6 +68,7 @@ function showImportImages(data,f){const wrap=$('#import-image-options');if(!wrap
 async function importProduct(options={}){
   const f=$('#item-form'),btn=$('#import-product'),message=$('#import-status'),screenBtn=$('#import-screenshot-btn');if(!f||!btn||btn.disabled)return;
   const screenshot=options.screenshot||'',raw=f.elements.url.value.trim();
+  if(screenshot&&!confirm('Отправить этот скриншот в AI для распознавания? Убедись, что на нём нет личных данных.'))return;
   let url=validURL(raw);if(!url&&raw&&!/^[a-z][a-z\d+.-]*:/i.test(raw)&&/^[^\s/]+\.[^\s/]+/i.test(raw)){url=validURL('https://'+raw);if(url)f.elements.url.value=url}
   if(!url&&!screenshot){message.textContent='Введи корректную ссылку на товар.';return}
   if(url&&state.items.some(i=>i.url===url&&i.id!==f.dataset.id)&&!confirm('Такой товар уже есть. Всё равно продолжить?'))return;
@@ -98,7 +99,7 @@ async function importProduct(options={}){
   }catch(e){if(current())message.textContent=(e.name==='TimeoutError'?'Магазин не ответил вовремя.':e.message||'Ошибка импорта.')+' Можно заполнить вручную или загрузить скриншот.'}
   finally{clearInterval(timer);if(current()){btn.disabled=false;if(screenBtn)screenBtn.disabled=false}}
 }
-document.addEventListener('paste',e=>{if(e.target.id!=='product-url')return;const f=$('#item-form');setTimeout(()=>{if(f&&$('#item-form')===f&&validURL(f.elements.url.value.trim()))importProduct()},80)});
+document.addEventListener('paste',e=>{if(e.target.id!=='product-url')return;const f=$('#item-form');setTimeout(()=>{if(f&&$('#item-form')===f&&f.elements.url.value.trim())importProduct()},80)});
 document.addEventListener('click',e=>{if(e.target.closest('#import-screenshot-btn'))$('#import-screenshot')?.click();if(e.target.closest('#import-unlock')){if(askImportPass()&&$('#product-url')?.value)importProduct({refresh:true})}});
 document.addEventListener('change',async e=>{if(e.target.id!=='import-screenshot'||!e.target.files?.[0])return;const epoch=modalEpoch;try{const img=await resizeImage(e.target.files[0]);if(epoch!==modalEpoch)return;await importProduct({screenshot:img})}catch(err){if(epoch===modalEpoch)$('#import-status').textContent=err.message||'Не удалось прочитать скриншот'}finally{e.target.value=''}});
 

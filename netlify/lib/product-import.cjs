@@ -74,14 +74,19 @@ function parsePage(html,url,h,source='HTML'){
   const nameMatch=entries.filter(p=>typeof p.name==='string'&&[og,h1].some(v=>v&&v.toLowerCase().includes(p.name.toLowerCase())));
   let p=matched.length===1?matched[0]:nameMatch.length===1?nameMatch[0]:entries.length===1?entries[0]:{};
   // A ProductGroup containing many variants may have no exact variant price. Do not pick a random variant.
-  let offers=[p.offers].flat().filter(v=>v&&typeof v==='object');let offer=offers.length===1?offers[0]:offers.find(v=>typeof v.url==='string'&&canonical(v.url)===target)||{};
+  let offers=[p.offers].flat().filter(v=>v&&typeof v==='object');
+  const exact=v=>{try{return stripTracking(new URL(v,url).href)===stripTracking(url)}catch{return false}};
+  const exactOffers=offers.filter(v=>typeof v.url==='string'&&exact(v.url));
+  let offer=offers.length===1?offers[0]:exactOffers.length===1?exactOffers[0]:{};
+  const nested=[offer.offers].flat().filter(v=>v&&typeof v==='object');
+  if(nested.length===1&&offer.price==null&&offer.lowPrice==null)offer={...offer,...nested[0]};
   let spec=[offer.priceSpecification].flat().filter(v=>v&&typeof v==='object');spec=spec.length===1?spec[0]:{};
   let raw=offer.price??spec.price,code=offer.priceCurrency||spec.priceCurrency;
   if(raw==null&&offer.lowPrice!=null&&(offer.highPrice==null||String(offer.lowPrice)===String(offer.highPrice)))raw=offer.lowPrice;
-  const priceMeta=get('product:price:amount','og:price:amount','price','twitter:data1');
-  if(raw==null){raw=priceMeta;code=get('product:price:currency','og:price:currency','pricecurrency')}
+  const priceMeta=get('product:price:amount','og:price:amount','price');
+  if(raw==null&&offers.length<=1){raw=priceMeta;code=get('product:price:currency','og:price:currency','pricecurrency')}
   // Explicit product microdata or price-specific elements, never arbitrary page-wide numbers.
-  if(raw==null||raw===''){
+  if((raw==null||raw==='')&&offers.length<=1){
     const priceTag=html.match(/<(?:span|div|p|strong|data)\b[^>]*(?:itemprop\s*=\s*["']price["']|(?:id|class)\s*=\s*["'][^"']*\b(?:product-price|price-current|current-price|sale-price)\b[^"']*["'])[^>]*>([^<]{1,100})</i);
     if(priceTag){raw=h.plain(priceTag[1],100);code=get('product:price:currency','og:price:currency','pricecurrency')}
   }
@@ -114,7 +119,7 @@ function fromReader(d,url,h,source){
   for(const line of md.split('\n')){const m=line.match(/^\s*(?:\*\*)?(?:цена(?: товара)?|price|sale price|current price|售价|价格)(?:\*\*)?\s*[:：]?\s*(.{1,70})$/i);if(m){const v=money(m[1].replace(/\*\*/g,''),'',h.parsePrice);if(v.price!==null&&v.currency)priceMatches.push(v)}}
   const price=priceMatches.length===1?priceMatches[0]:{};
   // Prefer explicit OG picture; use Markdown image only if its alt text matches the product title.
-  const needle=title.toLowerCase().split(/\s+/).filter(v=>v.length>3);
+  const needle=title.toLowerCase().split(/\s+/).filter(v=>v.length>3&&!/^(?:amazon|ozon|wildberries|shop|магазин|купить|online|official)$/.test(v));
   for(const m of md.matchAll(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g)){if(needle.some(v=>m[1].toLowerCase().includes(v)))images.push(m[2])}
   const p=normalize({title,description:d.description||meta.description,images,price:price.price,currency:price.currency},url,h,source);
   return {product:p,evidence:md.slice(0,26000)};
@@ -150,6 +155,7 @@ async function aiExtract({evidence,p,image,url,h,env,ms}){
   // If currency is ambiguous in the quoted price, explicit ISO must occur in the evidence or existing verified data.
   if(!image&&amount.currency&&!money(priceText,'',h.parsePrice).currency&&p.currency!==amount.currency&&!new RegExp('\\b'+amount.currency+'\\b','i').test(evidence))amount={price:null,currency:''};
   const chosen=p.images.includes(a.image_url)?a.image_url:'';
+  if(!text(a.title,250)||unusable(text(a.title,250)))return image?blank(url):p;
   const output=normalize({title:a.title,description:a.description,brand:a.brand,variant:a.variant,category:a.category,price:amount.price,currency:amount.currency,image:chosen},url,h,image?'OpenRouter · screenshot':'OpenRouter');
   if(!image&&meaningful(p)){// Preserve source identity and price, use AI only to enrich.
     output.title=p.title;output.sources.title=p.sources.title;return merge(p,output);
@@ -171,9 +177,9 @@ async function runImport({url,screenshot,refresh=false,paid=false,env=process.en
   const mayForward=!sensitiveURL(url);
   try{const d=await (providers.direct||h.download)(url,Date.now()+6500);p=parsePage(d.html,d.url,h,'HTML');evidence=cleanPageText(d.html,h);attempt('HTML',meaningful(p)?'ok':'no_product')}catch{attempt('HTML','unavailable')}
   if(!complete(p)&&mayForward&&paid&&env.FIRECRAWL_API_KEY&&left()>12000){
-    try{const d=await (providers.firecrawl||((url,ms)=>jsonRequest('https://api.firecrawl.dev/v2/scrape',{method:'POST',headers:{Authorization:'Bearer '+env.FIRECRAWL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({url,formats:['rawHtml','markdown'],onlyMainContent:true,timeout:Math.min(14000,ms-1000),maxAge:refresh?0:900000})},ms)))(url,Math.min(18000,left()-10000));
+    try{const d=await (providers.firecrawl||((url,ms)=>jsonRequest('https://api.firecrawl.dev/v2/scrape',{method:'POST',headers:{Authorization:'Bearer '+env.FIRECRAWL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({url,formats:['rawHtml','html','markdown'],onlyMainContent:true,timeout:Math.min(14000,ms-1000),maxAge:refresh?0:900000})},ms)))(url,Math.min(18000,left()-10000));
       if(d.success===false||!d.data)throw Error('scrape failed');const v=d.data,actual=h.checkedURL(v.metadata?.sourceURL||v.metadata?.url||url).href;
-      const q=parsePage(v.rawHtml||v.html||'',actual,h,'Firecrawl');const r=fromReader({...v,title:v.metadata?.title},actual,h,'Firecrawl');p=merge(p,meaningful(q)?merge(q,r.product):r.product);evidence=(r.evidence||evidence).slice(0,26000);attempt('Firecrawl',meaningful(q)||meaningful(r.product)?'ok':'no_product')
+      const q=merge(parsePage(v.rawHtml||'',actual,h,'Firecrawl'),parsePage(v.html||'',actual,h,'Firecrawl'));const r=fromReader({...v,title:v.metadata?.title},actual,h,'Firecrawl');p=merge(p,meaningful(q)?merge(q,r.product):r.product);evidence=(r.evidence||cleanPageText(v.html||v.rawHtml||'',h)||evidence).slice(0,26000);attempt('Firecrawl',meaningful(q)||meaningful(r.product)?'ok':'no_product')
     }catch{attempt('Firecrawl','unavailable')}
   }
   if(!complete(p)&&mayForward&&env.IMPORT_JINA!=='off'&&left()>9000){
@@ -181,7 +187,7 @@ async function runImport({url,screenshot,refresh=false,paid=false,env=process.en
       const v=d.data||d,actual=h.checkedURL(v.url||url).href;const r=fromReader(v,actual,h,'Jina Reader');p=merge(p,r.product);if(r.evidence)evidence=r.evidence;attempt('Jina Reader',meaningful(r.product)?'ok':'no_product')
     }catch{attempt('Jina Reader','unavailable')}
   }
-  if(!complete(p)&&mayForward&&paid&&env.OPENROUTER_API_KEY&&evidence&&left()>5000){
+  if((!complete(p)||p.category==='Другое')&&mayForward&&paid&&env.OPENROUTER_API_KEY&&evidence&&left()>5000){
     try{p=merge(p,await (providers.ai||aiExtract)({evidence,p,url:p.url||url,h,env,ms:Math.min(left(),15000)}));attempt('OpenRouter',meaningful(p)?'ok':'no_product')}catch{attempt('OpenRouter','unavailable')}
   }
   const status=publicStatus(env);const result=finalize(p,attempts,{requiresPass:!complete(p)&&!paid&&status.protected&&(status.providers.firecrawl||status.providers.openrouter),providers:status.providers,externalSkipped:!mayForward});
